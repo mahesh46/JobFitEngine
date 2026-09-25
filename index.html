@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobFit Engine v2.0 — Dynamic ATS Evaluator</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface-2: #16161f;
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.15);
+    --text: #f0f0f5;
+    --text-dim: #8a8a9a;
+    --accent: #7c3aed;
+    --accent-2: #06b6d4;
+    --accent-gradient: linear-gradient(135deg, #7c3aed, #06b6d4);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  ::selection { background: rgba(124,58,237,0.3); }
+
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 { width: 600px; height: 600px; background: var(--accent); top: -200px; left: -200px; }
+  .orb-2 { width: 500px; height: 500px; background: var(--accent-2); bottom: -150px; right: -150px; opacity: 0.25; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    backdrop-filter: blur(20px);
+    background: rgba(10,10,15,0.7);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    padding: 16px 0;
+  }
+  nav .container { display: flex; align-items: center; justify-content: space-between; }
+  .logo {
+    font-weight: 700; font-size: 1.25rem; letter-spacing: -0.5px;
+    background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .nav-links a {
+    color: var(--text-dim); text-decoration: none; margin-left: 28px; font-size: 0.9rem; font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--text); }
+
+  header { padding: 160px 0 100px; text-align: center; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-dim); font-size: 0.8rem; font-weight: 500; margin-bottom: 32px;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); }
+  h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800; letter-spacing: -2px; line-height: 1.05;
+    margin-bottom: 20px;
+  }
+  .gradient-text {
+    background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .subheadline {
+    font-size: clamp(1rem, 2vw, 1.25rem); color: var(--text-dim); max-width: 600px; margin: 0 auto 40px; font-weight: 400;
+  }
+  .cta-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    padding: 12px 28px; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.95rem;
+    border: none; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary {
+    background: var(--accent-gradient); color: white; box-shadow: 0 4px 20px rgba(124,58,237,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,58,237,0.4); }
+  .btn-secondary {
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--border-hover); background: var(--surface-2); }
+  .btn-small {
+    padding: 8px 18px; font-size: 0.85rem;
+  }
+
+  .engine-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    margin: 60px auto;
+    max-width: 900px;
+    position: relative;
+    overflow: hidden;
+  }
+  .engine-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(124,58,237,0.5), rgba(6,182,212,0.5), transparent);
+  }
+  .input-group { margin-bottom: 20px; }
+  .input-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .input-group input[type="text"], .input-group textarea {
+    width: 100%; padding: 14px 16px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text); font-size: 0.95rem; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input-group input:focus, .input-group textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+  .input-group textarea { min-height: 140px; resize: vertical; font-family: inherit; }
+  .results { display: none; margin-top: 40px; animation: fadeIn 0.6s ease; }
+  .results.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .score-ring {
+    width: 140px; height: 140px; border-radius: 50%;
+    background: conic-gradient(var(--accent) 0% 0%, var(--surface-2) 0% 100%);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 30px; position: relative;
+    transition: background 1s ease;
+  }
+  .score-ring::before {
+    content: ''; position: absolute; width: 110px; height: 110px; border-radius: 50%; background: var(--surface);
+  }
+  .score-value { position: relative; font-size: 2.5rem; font-weight: 800; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+  .dimension-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 30px;
+  }
+  .dim-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .dim-card .dim-name { font-size: 0.85rem; color: var(--text-dim); }
+  .dim-card .dim-score { font-weight: 700; font-size: 1rem; }
+  .dim-bar { width: 100%; height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .dim-bar-fill { height: 100%; border-radius: 2px; background: var(--accent-gradient); transition: width 1s ease; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab {
+    padding: 8px 16px; border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+  }
+  .tab.active { background: var(--surface-2); color: var(--text); border-color: var(--border-hover); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .tab-panel { display: none; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 24px; font-size: 0.9rem; line-height: 1.7; max-height: 700px; overflow-y: auto; }
+  .tab-panel.active { display: block; animation: fadeIn 0.3s ease; }
+  .tab-panel h3 { font-size: 1rem; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .tab-panel pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; color: var(--text-dim); }
+
+  .section { padding: 100px 0; }
+  .section-title { font-size: 2rem; font-weight: 700; letter-spacing: -1px; margin-bottom: 12px; text-align: center; }
+  .section-sub { color: var(--text-dim); text-align: center; max-width: 500px; margin: 0 auto 60px; }
+  .features {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;
+  }
+  .feature {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .feature:hover { transform: translateY(-4px); border-color: var(--border-hover); }
+  .feature-icon {
+    width: 44px; height: 44px; border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 1.25rem;
+  }
+  .feature h3 { font-size: 1.1rem; margin-bottom: 8px; }
+  .feature p { font-size: 0.9rem; color: var(--text-dim); line-height: 1.6; }
+
+  .steps { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
+  .step {
+    flex: 1; min-width: 240px; max-width: 300px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; text-align: center; position: relative;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--accent-gradient); color: white;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem;
+    margin: 0 auto 16px;
+  }
+  .step h4 { margin-bottom: 8px; font-size: 1rem; }
+  .step p { font-size: 0.85rem; color: var(--text-dim); }
+
+  .loader {
+    display: none; text-align: center; padding: 40px;
+  }
+  .loader.active { display: block; }
+  .spinner {
+    width: 40px; height: 40px; border: 3px solid var(--surface-2); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-steps { display: flex; flex-direction: column; gap: 10px; max-width: 400px; margin: 0 auto; }
+  .loader-step { display: flex; align-items: center; gap: 12px; color: var(--text-dim); font-size: 0.9rem; transition: color 0.3s; }
+  .loader-step.done { color: var(--text); }
+  .loader-step.done::before { content: '✓'; color: var(--success); font-weight: 700; }
+  .loader-step:not(.done)::before { content: '○'; color: var(--text-dim); }
+
+  .keyword-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin: 2px;
+    font-weight: 500;
+  }
+  .keyword-matched { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+  .keyword-missing { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+  .keyword-partial { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+
+  .ats-warning {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: var(--warning);
+  }
+  .ats-ok {
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: var(--success);
+  }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+  footer { border-top: 1px solid var(--border); padding: 40px 0; text-align: center; color: var(--text-dim); font-size: 0.85rem; }
+
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+  @media (max-width: 640px) {
+    .engine-card { padding: 24px; }
+    .dimension-grid { grid-template-columns: 1fr; }
+    header { padding: 120px 0 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<nav>
+  <div class="container">
+    <div class="logo">JobFit Engine</div>
+    <div class="nav-links">
+      <a href="#engine">Analyze</a>
+      <a href="#features">Features</a>
+      <a href="#how">How it Works</a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="container">
+    <div class="badge"><span class="dot"></span> v2.0 Dynamic Generation</div>
+    <h1>Paste a job description.<br>Paste your CV.<br><span class="gradient-text">Get hired faster.</span></h1>
+    <p class="subheadline">Dynamic ATS optimisation. Adaptive cover letters. Role-specific interview prep. All generated from your CV and the exact job description.</p>
+    <div class="cta-group">
+      <a href="#engine" class="btn btn-primary">Start Analysis</a>
+      <button class="btn btn-secondary" onclick="loadDemo()">Try Demo ↓</button>
+    </div>
+  </div>
+</header>
+
+<section id="engine" class="section" style="padding-top: 40px;">
+  <div class="container">
+    <div class="engine-card">
+      <div class="input-group" style="margin-bottom: 20px;">
+        <label>Job Description *</label>
+        <textarea id="jobDesc" placeholder="Paste the full job description here..." style="min-height: 180px;"></textarea>
+      </div>
+      <div class="input-group">
+        <label>Your CV *</label>
+        <textarea id="cvText" style="min-height: 280px;" placeholder="Paste your CV text here..."></textarea>
+      </div>
+      <button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 14px;" onclick="runAnalysis()">
+        Run JobFit Analysis →
+      </button>
+
+      <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <div style="font-weight: 600; margin-bottom: 20px;">Running JobFit Engine...</div>
+        <div class="loader-steps">
+          <div class="loader-step" id="ls1">Extracting job spec, keywords & culture signals</div>
+          <div class="loader-step" id="ls2">Parsing CV for skills, metrics & ATS health</div>
+          <div class="loader-step" id="ls3">Scoring across 10 dimensions</div>
+          <div class="loader-step" id="ls4">Generating ATS-optimised rewrite</div>
+          <div class="loader-step" id="ls5">Building cover letter & interview cards</div>
+        </div>
+      </div>
+
+      <div class="results" id="results">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div class="score-ring" id="scoreRing"><div class="score-value" id="scoreVal">0</div></div>
+          <h2 style="font-size: 1.5rem; margin-bottom: 8px;">Overall Fit Score</h2>
+          <p style="color: var(--text-dim); max-width: 700px; margin: 0 auto; font-size: 0.95rem;" id="scoreSummary">
+            Analysis pending...
+          </p>
+          <div style="margin-top: 16px;" id="keywordSummary"></div>
+        </div>
+
+        <div class="dimension-grid" id="dimensionGrid">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(0)">ATS CV Rewrite</div>
+          <div class="tab" onclick="switchTab(1)">Cover Letter</div>
+          <div class="tab" onclick="switchTab(2)">Interview Prep</div>
+          <div class="tab" onclick="switchTab(3)">Keyword Analysis</div>
+          <div class="tab" onclick="switchTab(4)">Raw JSON</div>
+        </div>
+
+        <div class="tab-panel active" id="panel0">
+          <div id="atsWarnings"></div>
+          <h3>
+            ATS-Optimised CV
+            <button class="btn btn-primary btn-small" onclick="downloadDoc('cv')">📄 Download .doc</button>
+          </h3>
+          <pre id="cvContent" style="margin-top: 12px;"></pre>
+        </div>
+        <div class="tab-panel" id="panel1">
+          <h3>
+            Tailored Cover Letter
+            <button class="btn btn-primary btn-small" onclick="downloadDoc('cover')">📄 Download .doc</button>
+          </h3>
+          <pre id="coverContent" style="margin-top: 12px;"></pre>
+        </div>
+        <div class="tab-panel" id="panel2">
+          <h3>
+            Interview Prep Cards
+            <button class="btn btn-primary btn-small" onclick="downloadDoc('interview')">📄 Download .doc</button>
+          </h3>
+          <pre id="interviewContent" style="margin-top: 12px;"></pre>
+        </div>
+        <div class="tab-panel" id="panel3">
+          <h3>Keyword & Requirement Analysis</h3>
+          <div id="keywordAnalysis" style="margin-top: 12px;"></div>
+        </div>
+        <div class="tab-panel" id="panel4">
+          <h3>Raw Output JSON</h3>
+          <pre id="jsonContent" style="margin-top: 12px;"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="section">
+  <div class="container">
+    <h2 class="section-title">Everything you need to <span class="gradient-text">land the role.</span></h2>
+    <p class="section-sub">No generic career advice. Dynamic generation adapts to every job you apply for.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <h3>10-Dimension Fit Score</h3>
+        <p>Dynamic scoring based on actual keyword overlap, seniority signals, and competency matching against the live job description.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📝</div>
+        <h3>ATS-Optimised CV Rewrite</h3>
+        <p>Restructures bullets to front-load matched skills, reorders sections by relevance, and enforces parser-safe formatting.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">✉️</div>
+        <h3>Culture-Adaptive Cover Letter</h3>
+        <p>Detects startup vs corporate tone from the JD and adapts voice, formality, and hook angle automatically.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🎯</div>
+        <h3>5-Star Interview Prep Cards</h3>
+        <p>Generates technical deep-dives from responsibilities, behavioural probes from culture signals, and STAR frameworks from your metrics.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="section" style="padding-bottom: 40px;">
+  <div class="container">
+    <h2 class="section-title">How it works</h2>
+    <p class="section-sub">Three steps from job posting to interview-ready.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h4>Paste the Job Description</h4>
+        <p>Our engine extracts requirements, responsibilities, tone, seniority, and culture signals automatically.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h4>Paste Your CV</h4>
+        <p>We parse your experience, skills, metrics, and flag ATS blockers like weak verbs or poor formatting.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h4>Get Your Toolkit</h4>
+        <p>Receive your dynamic Fit Score, rewritten CV, adaptive cover letter, and interview cards — instantly.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>JobFit Engine v2.0 — Dynamic ATS Evaluator & Career Document Generator</p>
+  </div>
+</footer>
+
+<script>
+
+// ===================== JOBFIT ENGINE v2.0 =====================
+// Dynamic parsing, scoring, and content generation engine
+
+const SKILL_TAXONOMY = {
+  languages: ['python','javascript','js','typescript','ts','java','c++','c#','go','golang','rust','swift','kotlin','scala','ruby','php','perl','r','matlab','sas','sql','bash','shell','powershell','html','css','sass','scss','xml','json','yaml'],
+  frontend: ['react','reactjs','vue','vuejs','angular','svelte','nextjs','nuxt','gatsby','jquery','bootstrap','tailwind','material ui','mui','chakra','antd','webpack','vite','rollup','parcel','babel','eslint','prettier'],
+  backend: ['node','nodejs','express','fastify','nest','nestjs','django','flask','fastapi','spring','spring boot','rails','laravel','symfony','asp.net','.net','graphql','rest','api','microservices','serverless','lambda','kafka','rabbitmq','celery','redis','memcached','elasticsearch','solr'],
+  mobile: ['ios','android','react native','flutter','xamarin','ionic','cordova','phonegap','swiftui','uikit','jetpack compose','objective-c','realm','core data','sqlite','expo'],
+  data: ['pandas','numpy','scipy','scikit-learn','sklearn','tensorflow','pytorch','keras','xgboost','lightgbm','catboost','spark','hadoop','hive','airflow','dbt','snowflake','bigquery','redshift','tableau','powerbi','looker','matplotlib','seaborn','plotly','d3','jupyter','colab'],
+  devops: ['docker','kubernetes','k8s','terraform','ansible','chef','puppet','jenkins','github actions','gitlab ci','circleci','travis','azure devops','aws','gcp','azure','ec2','s3','rds','lambda','cloudformation','helm','prometheus','grafana','datadog','new relic','elk','nginx','apache'],
+  testing: ['jest','mocha','chai','cypress','playwright','selenium','junit','pytest','unittest','tdd','bdd','cucumber','postman','insomnia','jmeter','k6','load testing','unit testing','integration testing','e2e'],
+  architecture: ['microservices','monolith','serverless','event-driven','cqrs','ddd','domain driven design','clean architecture','hexagonal','mvc','mvp','mvvm','mvvm-c','viper','solid','dry','kiss','tdd','bdd','ci/cd','agile','scrum','kanban',' SAFE','lean'],
+  soft: ['leadership','mentorship','mentoring','communication','collaboration','stakeholder management','project management','product management','cross-functional','teamwork','problem solving','critical thinking','decision making','time management','adaptability','creativity','emotional intelligence','conflict resolution','negotiation','presentation','public speaking','strategic thinking'],
+  design: ['figma','sketch','adobe xd','photoshop','illustrator','indesign','after effects','premiere','blender','cinema 4d','principle','framer','invision','zeplin','abstract','user research','usability testing','accessibility','a11y','wcag','responsive design','mobile first','design systems','component libraries','atomic design'],
+  security: ['owasp','penetration testing','pentest','vulnerability assessment','threat modeling','cryptography','encryption','ssl','tls','oauth','openid','jwt','saml','sso','mfa','2fa','rbac','abac','gdpr','ccpa','soc2','iso27001','hipaa','pci dss','nist','cve','cvss','siem','soc','firewall','ids','ips','waf'],
+  finance: ['fintech','banking','trading','investment','risk management','compliance','regulatory','audit','accounting','financial modeling','valuation','dcf','lbo','ma','mergers','acquisitions','ipo','blockchain','cryptocurrency','crypto','defi','nft','smart contracts','solidity','web3'],
+  healthcare: ['healthcare','clinical','medical','pharma','biotech','hipaa','fda','gcp','glp','emr','ehr','hl7','fhir','dicom','pacs','laboratory','diagnostics','telemedicine'],
+  other_tech: ['git','github','gitlab','bitbucket','jira','confluence','trello','asana','notion','linear','slack','teams','zoom','linux','unix','windows','macos','ios','android','arduino','raspberry pi','iot','embedded','firmware','plc','scada','mqtt','coap','bluetooth','ble','nfc','rfid','gps','gis']
+};
+
+const CULTURE_SIGNALS = {
+  startup: ['fast-paced','wear many hats','ninja','rockstar','hustle','disrupt','disruptive','founding team','early employee','equity','stock options','high growth','scale-up','lean','agile','scrappy','move fast','break things','growth hacking','pmf','product-market fit','iteration','experiment','mvp','pivot','burn rate','runway','seed','series a','series b','venture backed','vc funded','startup','founder','cofounder'],
+  corporate: ['enterprise','fortune 500','stakeholder','stakeholders','governance','compliance','regulatory','audit','sox','procurement','vendor management','slas','slo','sla','change management','itil','cobit','framework','process','procedure','standard operating procedure','sop','bureaucracy','hierarchy','matrix','reporting line','executive','c-suite','board','shareholder','quarterly','annual report','10-k','sec filing','investor relations','ir','esg','csr','diversity and inclusion','dei'],
+  product_led: ['product-led','product led','user-centric','user centric','customer obsessed','customer-obsessed','design-driven','design driven','ux-first','ux first','product thinking','product sense','outcome','outcomes','impact','north star','okrs','kpis','metrics','data-driven','data driven','experimentation','a/b test','ab test','user research','user interview','persona','journey map','service design','design thinking','jobs to be done','jtbd'],
+  engineering_culture: ['engineering-first','engineering first','tech-first','tech first','developer experience','dx','internal tooling','platform team','sre','site reliability','devops','observability','monitoring','logging','tracing','incident response','postmortem','blameless','psychological safety','code review','pair programming','mob programming','hackathon','20% time','open source','oss','contribution','technical debt','refactoring','modernization','migration']
+};
+
+const SENIORITY_PATTERNS = [
+  { level: 'Junior', regex: /\b(junior|jr|entry[- ]?level|graduate|intern|apprentice|trainee|associate)\b/gi, weight: 1 },
+  { level: 'Mid', regex: /\b(mid[- ]?level|intermediate|developer|engineer[^\w]|software engineer)\b/gi, weight: 2 },
+  { level: 'Senior', regex: /\b(senior|sr|staff|lead|principal|architect|specialist|expert)\b/gi, weight: 3 },
+  { level: 'Lead', regex: /\b(lead|leading|team lead|tech lead|engineering lead|development lead)\b/gi, weight: 4 },
+  { level: 'Staff', regex: /\b(staff|staff engineer|senior staff|distinguished)\b/gi, weight: 5 },
+  { level: 'Principal', regex: /\b(principal|principal engineer|fellow|distinguished engineer)\b/gi, weight: 6 },
+  { level: 'Head', regex: /\b(head of|director|vp|vice president|cto|chief technology|ciso|chief information)\b/gi, weight: 7 }
+];
+
+const ACTION_VERBS = [
+  'achieved','accelerated','acquired','adapted','administered','advanced','advocated','analyzed','architected','arranged','assembled','assessed','assisted','attained','audited','authored','automated','awarded','balanced','boosted','built','calculated','captured','centralized','chaired','changed','charted','checked','chose','clarified','closed','coached','coded','collaborated','collected','combined','communicated','compared','compiled','completed','composed','computed','conceived','conceptualized','condensed','conducted','conserved','consolidated','constructed','consulted','contacted','continued','contracted','controlled','converted','conveyed','convinced','coordinated','corrected','corresponded','costed','counseled','created','critiqued','cut','dealt','debugged','decentralized','decided','defined','delegated','delivered','demonstrated','deprecated','described','designed','determined','developed','devised','diagnosed','directed','discovered','dispatched','displayed','dissected','distributed','documented','doubled','drafted','drove','earned','edited','educated','effected','eliminated','enabled','enacted','encouraged','engineered','enhanced','ensured','established','estimated','evaluated','examined','exceeded','executed','expanded','expedited','experimented','explained','explored','expressed','extracted','facilitated','fashioned','filed','filtered','finalized','fixed','focused','forecasted','formed','formulated','fostered','founded','gained','gathered','generated','governed','graduated','grew','guided','handled','headed','helped','hired','hosted','identified','illustrated','implemented','improved','improvised','incorporated','increased','incubated','inducted','influenced','informed','initiated','innovated','inspected','inspired','installed','instituted','instructed','integrated','interacted','interpreted','interviewed','introduced','invented','investigated','itemized','joined','launched','lectured','led','leveraged','lifted','linked','localized','located','logged','maintained','managed','mapped','marketed','maximized','measured','mediated','mentored','merged','met','minimized','mobilized','modeled','moderated','modified','monitored','motivated','moved','multiplied','named','narrated','navigated','negotiated','netted','observed','obtained','offered','opened','operated','optimized','orchestrated','ordered','organized','outlined','overcame','overhauled','oversaw','owned','participated','partnered','patched','performed','persuaded','piloted','pinpointed','pioneered','placed','planned','polished','predicted','prepared','presented','preserved','prevented','prioritized','probed','produced','programmed','projected','promoted','proposed','prototyped','proved','provided','published','purchased','pursued','qualified','quantified','queried','questioned','raised','ranked','rated','reached','realized','received','recommended','reconciled','recorded','recruited','reduced','reengineered','referred','refined','refocused','refreshed','regulated','rehabilitated','reinforced','relaunched','related','remedied','remodeled','reorganized','replaced','replied','reported','represented','researched','resolved','responded','restored','restructured','resulted','retained','retired','retrieved','reversed','reviewed','revised','revitalized','revolutionized','rewarded','routed','ran','saved','scaffolded','scaled','scheduled','scoped','scored','screened','scripted','secured','selected','sent','separated','served','serviced','set','settled','shaped','shared','sharpened','shifted','shipped','showed','shrank','simplified','simulated','sold','solved','sorted','sought','sparked','spearheaded','specified','sped','spent','spoke','sponsored','spread','stabilized','staffed','standardized','started','steered','stimulated','streamlined','strengthened','structured','submitted','substantiated','succeeded','suggested','summarized','supervised','supplied','supported','surpassed','surveyed','sustained','synergized','systematized','tackled','targeted','taught','tested','tightened','took','trained','transacted','transcended','transferred','transformed','translated','transmitted','traveled','treated','trimmed','tripled','troubleshot','tuned','turned','tutored','uncovered','understood','undertook','unified','united','updated','upgraded','upheld','used','utilized','validated','valued','vaulted','verified','visualized','volunteered','won','worked','wrote'
+];
+
+const ATS_ISSUE_PATTERNS = [
+  { name: 'Tables detected', regex: /<table|<\/table>/i, severity: 'high' },
+  { name: 'Multi-column layout suspected', regex: /\btable\b|\btd\b|\btr\b|\bcol\b/i, severity: 'high' },
+  { name: 'Images or icons in text', regex: /\[image\]|\[icon\]|\[photo\]|\[logo\]/i, severity: 'medium' },
+  { name: 'Headers and footers may contain key info', regex: /header|footer|page \d+/i, severity: 'medium' },
+  { name: 'Special characters or symbols', regex: /[◆●■▪▸►→⇒⇨⟹➤➔➙➛➜➝➞➟➠➡➢➣➤➥➦➧➨➩➪➫➬➭➮➯➱➲➳➴➵➶➷➸➹➺➻➼➽➾]/, severity: 'low' },
+  { name: 'Graphical elements (emoji)', regex: /[\u{1F300}-\u{1F9FF}]/u, severity: 'low' },
+  { name: 'Complex formatting (tabs/spaces for layout)', regex: /\t{3,}| {8,}/, severity: 'low' }
+];
+
+// ===================== PARSING ENGINE =====================
+
+function normalizeText(text) {
+  return text.toLowerCase()
+    .replace(/[\n\r\t]+/g, ' ')
+    .replace(/[^\w\s\/\-+#.]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractSkills(text) {
+  const normalized = normalizeText(text);
+  const found = new Set();
+  const categories = {};
+
+  for (const [category, skills] of Object.entries(SKILL_TAXONOMY)) {
+    categories[category] = [];
+    for (const skill of skills) {
+      const pattern = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      if (pattern.test(normalized)) {
+        found.add(skill);
+        categories[category].push(skill);
+      }
+    }
+  }
+  return { all: Array.from(found), categories };
+}
+
+function extractRequirements(text) {
+  const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 10);
+  const requirements = [];
+  const responsibilities = [];
+
+  let inReq = false, inResp = false;
+  const reqHeaders = /requirements|qualifications|what you need|must have|essential|we are looking for|you should have|skills needed/i;
+  const respHeaders = /responsibilities|what you will do|the role|day-to-day|duties|key activities|you will/i;
+
+  for (const line of lines) {
+    if (reqHeaders.test(line) && line.length < 60) { inReq = true; inResp = false; continue; }
+    if (respHeaders.test(line) && line.length < 60) { inResp = true; inReq = false; continue; }
+    if (/^(benefits|perks|about us|company|apply|location|salary|\$)/i.test(line) && line.length < 60) { inReq = false; inResp = false; continue; }
+
+    if (inReq && (line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || /^\d+[.)]/.test(line) || (line.length > 20 && line.length < 300))) {
+      requirements.push(line.replace(/^[•\-\*\d+[.)]\s]+/, '').trim());
+    }
+    if (inResp && (line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || /^\d+[.)]/.test(line) || (line.length > 20 && line.length < 300))) {
+      responsibilities.push(line.replace(/^[•\-\*\d+[.)]\s]+/, '').trim());
+    }
+  }
+
+  // Fallback: if no structured bullets found, extract sentences with requirement-like patterns
+  if (requirements.length === 0) {
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+    for (const sent of sentences) {
+      if (/\b(must|should|need|required|essential|minimum|at least|experience with|proficiency|familiarity|knowledge of|understanding of|ability to)\b/i.test(sent)) {
+        requirements.push(sent.trim());
+      }
+    }
+  }
+  if (responsibilities.length === 0) {
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+    for (const sent of sentences) {
+      if (/\b(will|responsible|design|develop|build|create|manage|lead|work|collaborate|implement|maintain|support|deliver)\b/i.test(sent) && sent.length > 30) {
+        responsibilities.push(sent.trim());
+      }
+    }
+  }
+
+  return { requirements: requirements.slice(0, 12), responsibilities: responsibilities.slice(0, 12) };
+}
+
+function detectSeniority(text) {
+  let maxScore = 0;
+  let detected = 'Mid';
+  const normalized = text.toLowerCase();
+
+  for (const pattern of SENIORITY_PATTERNS) {
+    const matches = (normalized.match(pattern.regex) || []).length;
+    const score = matches * pattern.weight;
+    if (score > maxScore) {
+      maxScore = score;
+      detected = pattern.level;
+    }
+  }
+  return { level: detected, confidence: Math.min(maxScore / 3, 1) };
+}
+
+function detectCulture(text) {
+  const normalized = normalizeText(text);
+  const scores = {};
+  for (const [culture, signals] of Object.entries(CULTURE_SIGNALS)) {
+    scores[culture] = 0;
+    for (const signal of signals) {
+      const pattern = new RegExp(`\\b${signal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      scores[culture] += (normalized.match(pattern) || []).length;
+    }
+  }
+  const total = Object.values(scores).reduce((a,b) => a+b, 0) || 1;
+  const primary = Object.entries(scores).sort((a,b) => b[1]-a[1])[0];
+  return {
+    primary: primary[0],
+    scores: Object.fromEntries(Object.entries(scores).map(([k,v]) => [k, Math.round(v/total*100)])),
+    isStartup: scores.startup > scores.corporate,
+    isProductLed: scores.product_led > 0
+  };
+}
+
+function extractCompanyAndRole(text) {
+  // Try to find role title
+  const titlePatterns = [
+    /(?:we are (?:hiring|looking for) (?:a|an) )([^.\n]{5,80})/i,
+    /(?:job title|position|role)[:\s]+([^\n]{5,80})/i,
+    /^([A-Z][^.\n]{5,60}(?:Engineer|Developer|Manager|Designer|Analyst|Architect|Lead|Director|VP|Head|Specialist|Consultant)[^.\n]{0,40})$/m,
+    /(?:join us as (?:a|an) )([^.\n]{5,80})/i
+  ];
+  let roleTitle = '';
+  for (const pattern of titlePatterns) {
+    const match = text.match(pattern);
+    if (match) { roleTitle = match[1].trim(); break; }
+  }
+
+  // Try to find company name
+  const companyPatterns = [
+    /(?:at|join) ([A-Z][A-Za-z0-9&\s]{2,30})(?:\s|$|\.|,)/,
+    /([A-Z][A-Za-z0-9&\s]{2,30})(?:\s+(?:is|are) (?:hiring|looking))/,
+    /about ([A-Z][A-Za-z0-9&\s]{2,30})/i,
+    /^(?:company|organisation)[:\s]+([A-Za-z0-9&\s]{2,40})/im
+  ];
+  let companyName = '';
+  for (const pattern of companyPatterns) {
+    const match = text.match(pattern);
+    if (match) { companyName = match[1].trim(); break; }
+  }
+
+  return { roleTitle, companyName };
+}
+
+function parseCV(text) {
+  const sections = {};
+  const lines = text.split(/[\n\r]+/);
+  let currentSection = 'header';
+  const sectionPatterns = {
+    summary: /summary|profile|objective|about me/i,
+    experience: /experience|employment|work history|career|professional background/i,
+    education: /education|academic|qualifications|degrees/i,
+    skills: /skills|technologies|tech stack|competencies|expertise/i,
+    projects: /projects|portfolio|work samples/i,
+    certifications: /certifications|certificates|accreditations/i,
+    awards: /awards|honors|achievements|recognition/i
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    for (const [section, pattern] of Object.entries(sectionPatterns)) {
+      if (pattern.test(trimmed) && trimmed.length < 40) {
+        currentSection = section;
+        sections[currentSection] = sections[currentSection] || [];
+        break;
+      }
+    }
+    sections[currentSection] = sections[currentSection] || [];
+    sections[currentSection].push(trimmed);
+  }
+
+  // Extract bullets from experience
+  const bullets = [];
+  if (sections.experience) {
+    for (const line of sections.experience) {
+      if (/^[•\-\*►▸→⇒]/.test(line) || /^\s+\w/.test(line) && line.length > 30) {
+        bullets.push(line.replace(/^[•\-\*►▸→⇒\s]+/, '').trim());
+      }
+    }
+  }
+
+  // Extract metrics
+  const metrics = [];
+  const metricPattern = /\b\d{1,3}(?:,\d{3})*(?:\.\d+)?%?\s*(?:x|fold|times|million|billion|k|thousand|percent|\%|\$|£|€|USD|EUR|GBP)?\b/gi;
+  const metricMatches = text.match(metricPattern) || [];
+  for (const m of metricMatches) {
+    const sentence = text.split(/[.!?]/).find(s => s.includes(m));
+    if (sentence && sentence.length < 200) metrics.push(sentence.trim());
+  }
+
+  // Detect formatting issues
+  const atsIssues = [];
+  for (const issue of ATS_ISSUE_PATTERNS) {
+    if (issue.regex.test(text)) {
+      atsIssues.push(issue);
+    }
+  }
+
+  // Extract name (first line or line with email/phone)
+  let name = '';
+  const namePattern = /^([A-Z][a-z]+(?:\s[A-Z][a-z]+){1,3})(?:\s*[|\n\r]|\s+\+?\d)/m;
+  const nameMatch = text.match(namePattern);
+  if (nameMatch) name = nameMatch[1];
+  else {
+    const firstLine = lines.find(l => l.trim() && l.length < 50 && /^[A-Z]/.test(l));
+    if (firstLine) name = firstLine.trim();
+  }
+
+  // Extract contact info
+  const email = text.match(/[\w.-]+@[\w.-]+\.\w{2,}/)?.[0] || '';
+  const phone = text.match(/[\+]?[(]?\d{2,4}[)]?[-\s.]?\d{2,4}[-\s.]?\d{2,9}/)?.[0] || '';
+  const linkedin = text.match(/linkedin\.com\/in\/[^\s\n]+/)?.[0] || '';
+
+  return { sections, bullets, metrics: metrics.slice(0, 8), atsIssues, name, email, phone, linkedin, raw: text };
+}
+
+// ===================== SCORING ENGINE =====================
+
+function calculateDimensions(parsedJD, parsedCV) {
+  const jdSkills = parsedJD.skills.all;
+  const cvSkills = parsedCV.skills.all;
+  const jdSet = new Set(jdSkills);
+  const cvSet = new Set(cvSkills);
+
+  const matchedSkills = [...jdSet].filter(s => cvSet.has(s));
+  const missingSkills = [...jdSet].filter(s => !cvSet.has(s));
+  const skillMatch = jdSet.size > 0 ? Math.round((matchedSkills.length / jdSet.size) * 100) : 50;
+
+  // Experience relevance: domain overlap
+  const jdText = normalizeText(parsedJD.raw);
+  const cvText = normalizeText(parsedCV.raw);
+  const domainWords = ['fintech','healthcare','ecommerce','saas','b2b','b2c','enterprise','startup','consulting','agency','retail','manufacturing','logistics','education','government','nonprofit'];
+  const jdDomains = domainWords.filter(d => jdText.includes(d));
+  const cvDomains = domainWords.filter(d => cvText.includes(d));
+  const domainOverlap = jdDomains.filter(d => cvDomains.includes(d)).length;
+  const expRelevance = jdDomains.length > 0 ? Math.min(40 + (domainOverlap / jdDomains.length) * 60, 100) : 60;
+
+  // Seniority alignment
+  const jdSeniority = detectSeniority(parsedJD.raw);
+  const cvSeniority = detectSeniority(parsedCV.raw);
+  const seniorityDiff = Math.abs(SENIORITY_PATTERNS.findIndex(s => s.level === jdSeniority.level) - SENIORITY_PATTERNS.findIndex(s => s.level === cvSeniority.level));
+  const seniorityAlignment = Math.max(100 - seniorityDiff * 25, 30);
+
+  // Tech stack match
+  const techCategories = ['languages','frontend','backend','mobile','data','devops','testing','architecture'];
+  let techOverlap = 0;
+  let techTotal = 0;
+  for (const cat of techCategories) {
+    const jdTech = parsedJD.skills.categories[cat] || [];
+    const cvTech = parsedCV.skills.categories[cat] || [];
+    if (jdTech.length > 0) {
+      techTotal++;
+      const overlap = jdTech.filter(t => cvTech.includes(t)).length;
+      if (overlap > 0 || cvTech.length > 0) techOverlap++;
+    }
+  }
+  const techStackMatch = techTotal > 0 ? Math.round((techOverlap / techTotal) * 100) : 50;
+
+  // Keyword coverage: broader than just skills
+  const jdWords = new Set(jdText.split(/\s+/).filter(w => w.length > 4));
+  const cvWords = new Set(cvText.split(/\s+/).filter(w => w.length > 4));
+  const commonWords = [...jdWords].filter(w => cvWords.has(w));
+  const keywordCoverage = jdWords.size > 0 ? Math.round((commonWords.length / jdWords.size) * 100) : 50;
+
+  // Impact & metrics
+  const hasMetrics = parsedCV.metrics.length > 0;
+  const metricCount = parsedCV.metrics.length;
+  const impactMetrics = Math.min(40 + metricCount * 15, 100);
+
+  // ATS formatting
+  const issueCount = parsedCV.atsIssues.length;
+  const atsFormatting = Math.max(100 - issueCount * 20, 30);
+
+  // Verb strength
+  const cvBullets = parsedCV.bullets.join(' ').toLowerCase();
+  const verbCount = ACTION_VERBS.filter(v => cvBullets.includes(v)).length;
+  const verbStrength = Math.min(30 + verbCount * 8, 100);
+
+  // Industry alignment
+  const industryAlignment = expRelevance; // correlated
+
+  // Competitiveness: weighted average with penalty for missing critical skills
+  const competitiveness = Math.round((skillMatch + techStackMatch + seniorityAlignment + expRelevance) / 4);
+
+  return {
+    skill_match: skillMatch,
+    experience_relevance: Math.round(expRelevance),
+    seniority_alignment: seniorityAlignment,
+    tech_stack_match: techStackMatch,
+    keyword_coverage: keywordCoverage,
+    impact_metrics_strength: impactMetrics,
+    ats_formatting_health: atsFormatting,
+    verb_strength_clarity: verbStrength,
+    industry_alignment: Math.round(industryAlignment),
+    overall_competitiveness: competitiveness,
+    matched_skills: matchedSkills,
+    missing_skills: missingSkills,
+    jd_seniority: jdSeniority.level,
+    cv_seniority: cvSeniority.level
+  };
+}
+
+// ===================== CONTENT GENERATION =====================
+
+function generateATSCV(parsedJD, parsedCV, scores) {
+  const name = parsedCV.name || 'CANDIDATE NAME';
+  const email = parsedCV.email || '';
+  const phone = parsedCV.phone || '';
+  const linkedin = parsedCV.linkedin || '';
+
+  // Build skills section: matched first, then related, then others
+  const matched = scores.matched_skills;
+  const allCvSkills = parsedCV.skills.all;
+  const unmatched = allCvSkills.filter(s => !matched.includes(s));
+  const prioritizedSkills = [...matched, ...unmatched].slice(0, 25);
+
+  // Generate professional summary
+  const roleTitle = parsedJD.roleTitle || 'the role';
+  const companyName = parsedJD.companyName || 'the company';
+  const seniority = scores.jd_seniority;
+  const yearsExp = extractYearsExperience(parsedCV.raw);
+
+  const summaryTemplates = {
+    Senior: `${name} is a ${seniority.toLowerCase()} professional with ${yearsExp} years of experience driving impact in ${scores.industry_alignment > 60 ? 'aligned industries' : 'technology and product development'}. Deep expertise in ${matched.slice(0,5).join(', ')}${matched.length > 5 ? ', and related technologies' : ''}. Proven track record of ${parsedCV.metrics.length > 0 ? 'delivering measurable results' : 'shipping high-quality products'} and collaborating across cross-functional teams.`,
+    Mid: `Results-driven professional with ${yearsExp} years of hands-on experience in ${matched.slice(0,4).join(', ')}. Skilled at translating business requirements into technical solutions and collaborating in agile environments. Strong foundation in ${unmatched.slice(0,3).join(', ')} with a commitment to continuous learning and quality delivery.`,
+    Junior: `Motivated and detail-oriented professional with foundational experience in ${matched.slice(0,3).join(', ')}. Eager to contribute to ${companyName} while growing expertise in ${parsedJD.skills.all.slice(0,3).join(', ')}. Strong problem-solving abilities and a passion for building user-centric solutions.`
+  };
+  const summary = summaryTemplates[seniority] || summaryTemplates.Mid;
+
+  // Rewrite experience bullets
+  const rewrittenBullets = parsedCV.bullets.map(bullet => {
+    const bulletLower = bullet.toLowerCase();
+    const relevance = matched.filter(s => bulletLower.includes(s.toLowerCase())).length;
+
+    // Ensure bullet starts with strong verb
+    let cleanBullet = bullet.replace(/^[•\-\*►▸→⇒\s]+/, '');
+    const startsWithVerb = ACTION_VERBS.some(v => cleanBullet.toLowerCase().startsWith(v));
+    if (!startsWithVerb && cleanBullet.length > 20) {
+      // Prepend a contextual verb based on content
+      if (/lead|manage|team|direct/i.test(cleanBullet)) cleanBullet = 'Led ' + cleanBullet;
+      else if (/build|develop|create|ship|launch/i.test(cleanBullet)) cleanBullet = 'Developed ' + cleanBullet;
+      else if (/design|architect|structure/i.test(cleanBullet)) cleanBullet = 'Architected ' + cleanBullet;
+      else if (/improve|optim|enhance|increase/i.test(cleanBullet)) cleanBullet = 'Improved ' + cleanBullet;
+      else if (/test|qa|quality|bug/i.test(cleanBullet)) cleanBullet = 'Ensured ' + cleanBullet;
+      else cleanBullet = 'Delivered ' + cleanBullet;
+    }
+
+    // Add quantification hint if missing numbers
+    const hasNumbers = /\d/.test(cleanBullet);
+    if (!hasNumbers && cleanBullet.length > 40) {
+      // Suggest metric addition but don't fabricate
+      cleanBullet += ' [Add metric: X% improvement, $Y saved, Z users, etc.]';
+    }
+
+    return { text: cleanBullet, relevance };
+  }).sort((a,b) => b.relevance - a.relevance);
+
+  // Group bullets by inferred role (simplified)
+  const experienceBlocks = [];
+  if (parsedCV.sections.experience) {
+    let currentRole = '';
+    let currentBullets = [];
+    for (const line of parsedCV.sections.experience) {
+      if (/^[A-Z]/.test(line) && (line.includes('|') || line.includes('–') || line.includes('-') || line.includes('20')) && line.length < 100) {
+        if (currentRole) {
+          experienceBlocks.push({ role: currentRole, bullets: currentBullets });
+        }
+        currentRole = line;
+        currentBullets = [];
+      } else if (/^[•\-\*]/.test(line) || (line.length > 30 && /^\s+\w/.test(line))) {
+        const clean = line.replace(/^[•\-\*►▸→⇒\s]+/, '').trim();
+        const relevance = matched.filter(s => clean.toLowerCase().includes(s.toLowerCase())).length;
+        currentBullets.push({ text: clean, relevance });
+      }
+    }
+    if (currentRole) experienceBlocks.push({ role: currentRole, bullets: currentBullets });
+  }
+
+  // Sort bullets within each block by relevance
+  for (const block of experienceBlocks) {
+    block.bullets.sort((a,b) => b.relevance - a.relevance);
+  }
+
+  // Build output
+  let output = `${name.toUpperCase()}\n`;
+  if (roleTitle && roleTitle !== 'the role') output += `${roleTitle}\n`;
+  const contacts = [email, phone, linkedin].filter(Boolean);
+  if (contacts.length) output += contacts.join(' | ') + '\n';
+  output += `\nPROFESSIONAL SUMMARY\n${summary}\n`;
+
+  output += `\nCORE COMPETENCIES\n${prioritizedSkills.join(' • ')}\n`;
+
+  if (experienceBlocks.length > 0) {
+    output += `\nPROFESSIONAL EXPERIENCE\n`;
+    for (const block of experienceBlocks) {
+      output += `\n${block.role}\n`;
+      for (const bullet of block.bullets.slice(0, 5)) {
+        output += `• ${bullet.text}\n`;
+      }
+    }
+  } else if (rewrittenBullets.length > 0) {
+    output += `\nPROFESSIONAL EXPERIENCE\n`;
+    for (const bullet of rewrittenBullets.slice(0, 8)) {
+      output += `• ${bullet.text}\n`;
+    }
+  }
+
+  if (parsedCV.sections.education) {
+    output += `\nEDUCATION\n${parsedCV.sections.education.slice(1, 3).join('\n')}\n`;
+  }
+
+  if (parsedCV.sections.certifications) {
+    output += `\nCERTIFICATIONS\n${parsedCV.sections.certifications.slice(1, 4).join('\n')}\n`;
+  }
+
+  return output.trim();
+}
+
+function generateCoverLetter(parsedJD, parsedCV, scores) {
+  const culture = detectCulture(parsedJD.raw);
+  const isStartup = culture.isStartup;
+  const isProductLed = culture.isProductLed;
+  const companyName = parsedJD.companyName || 'your company';
+  const roleTitle = parsedJD.roleTitle || 'this role';
+  const name = parsedCV.name || 'Candidate';
+  const matched = scores.matched_skills.slice(0, 4);
+  const missing = scores.missing_skills.slice(0, 2);
+
+  // Tone adaptation
+  const tone = {
+    greeting: isStartup ? 'Hi there,' : 'Dear Hiring Manager,',
+    hook: isStartup 
+      ? `I came across ${companyName}'s ${roleTitle} opening and was immediately drawn to the team's mission.`
+      : `I am writing to express my strong interest in the ${roleTitle} position at ${companyName}.`,
+    bodyStyle: isStartup ? 'conversational' : 'formal',
+    closing: isStartup ? 'Excited to potentially join the journey,' : 'Sincerely,',
+    voice: isStartup ? 'passionate about building' : 'committed to delivering'
+  };
+
+  // Gap bridging for missing skills
+  let gapBridge = '';
+  if (missing.length > 0) {
+    const transferables = {
+      'react': 'modern frontend frameworks',
+      'vue': 'component-based architecture',
+      'angular': 'enterprise frontend patterns',
+      'python': 'data-driven programming',
+      'go': 'systems programming',
+      'rust': 'memory-safe development',
+      'kubernetes': 'container orchestration',
+      'terraform': 'infrastructure automation'
+    };
+    const bridgeSkills = missing.map(s => transferables[s] || 'adjacent technologies').filter((v,i,a) => a.indexOf(v) === i);
+    gapBridge = `While my recent work has focused on ${matched.join(' and ')}, I have actively developed proficiency in ${bridgeSkills.join(' and ')} through ${isStartup ? 'side projects and continuous learning' : 'structured training and practical application'}.`;
+  }
+
+  // Company-specific hook
+  let companyHook = '';
+  if (culture.scores.product_led > 20) {
+    companyHook = `Your product-led approach resonates deeply with my belief that great engineering starts with user empathy.`;
+  } else if (culture.scores.engineering_culture > 20) {
+    companyHook = `Your commitment to engineering excellence and developer experience aligns with how I approach technical work.`;
+  } else if (isStartup) {
+    companyHook = `The opportunity to build at an early stage and wear multiple hats is exactly the environment where I thrive.`;
+  } else {
+    companyHook = `Your reputation for operational excellence and structured growth provides the ideal setting for my next chapter.`;
+  }
+
+  const letter = `${tone.greeting}
+
+${tone.hook} ${companyHook}
+
+With ${extractYearsExperience(parsedCV.raw)} years of experience, I bring deep expertise in ${matched.join(', ')}. ${parsedCV.metrics.length > 0 ? 'My track record includes ' + parsedCV.metrics[0].toLowerCase().replace(/^[a-z]/, c => c.toLowerCase()) + '.' : 'I have consistently delivered high-impact work in fast-moving environments.'}
+
+${gapBridge}
+
+${isProductLed ? 'I am particularly drawn to how your team balances technical rigor with product intuition. I believe the best solutions emerge when engineers think like product managers and vice versa.' : 'I am eager to contribute my technical capabilities while growing within your organisation\'s established frameworks and mentorship structures.'}
+
+${isStartup ? 'I would love the opportunity to discuss how my background in ' + matched.slice(0,2).join(' and ') + ' can help ' + companyName + ' scale effectively.' : 'I would welcome the opportunity to discuss how my skills and experience align with the requirements of this position.'}
+
+${tone.closing}
+${name}`;
+
+  return letter;
+}
+
+function generateInterviewPrep(parsedJD, parsedCV, scores) {
+  const responsibilities = parsedJD.responsibilities;
+  const requirements = parsedJD.requirements;
+  const culture = detectCulture(parsedJD.raw);
+  const companyName = parsedJD.companyName || 'the company';
+  const roleTitle = parsedJD.roleTitle || 'this role';
+  const metrics = parsedCV.metrics;
+
+  // Card 1: Role-Specific Technical
+  const techQuestions = responsibilities.slice(0, 5).map((resp, i) => {
+    const keywords = extractSkills(resp).all.slice(0, 2);
+    const prompts = [
+      `Walk me through how you would approach: "${resp.substring(0, 100)}${resp.length > 100 ? '...' : ''}"`,
+      `What experience do you have with ${keywords.join(' and ') || 'related technologies'} in the context of ${resp.substring(0, 80)}...?`,
+      `Describe a project where you had to ${resp.toLowerCase().substring(0, 90)}... What were the key challenges?`,
+      `How would you measure success for: "${resp.substring(0, 100)}..."?`,
+      `Tell me about a time you had to balance ${resp.toLowerCase().substring(0, 80)}... with competing priorities.`
+    ];
+    return prompts[i % prompts.length];
+  });
+
+  // Card 2: Company-Signal Behavioural
+  const cultureQuestions = [];
+  if (culture.isStartup) {
+    cultureQuestions.push(
+      `${companyName} operates in a fast-paced environment. Tell me about a time you had to deliver under ambiguity with limited resources.`,
+      `How do you prioritise when wearing "multiple hats" and context-switching between unrelated tasks?`,
+      `Describe a situation where you disagreed with a founder or senior leader on product direction. How did you handle it?`,
+      `What does "move fast" mean to you, and how do you balance velocity with quality?`,
+      `How do you approach building something from 0 to 1 versus optimising an existing system?`
+    );
+  } else {
+    cultureQuestions.push(
+      `${companyName} values stakeholder alignment. Tell me about a time you had to influence a decision without direct authority.`,
+      `How do you manage competing priorities across multiple departments or business units?`,
+      `Describe your experience with governance, compliance, or regulatory requirements in previous roles.`,
+      `How do you ensure your technical decisions align with broader business objectives?`,
+      `Tell me about a time you had to navigate organisational bureaucracy to deliver a project.`
+    );
+  }
+
+  if (culture.isProductLed) {
+    cultureQuestions.push(
+      `How do you incorporate user feedback into your technical roadmap?`,
+      `Describe a time you challenged a product requirement because of technical or user-experience concerns.`
+    );
+  }
+
+  // Card 3: STAR Framework from CV metrics
+  const starCards = [];
+  if (metrics.length >= 2) {
+    starCards.push(`STAR — Metric-Driven Impact\nSituation: ${metrics[0].substring(0, 120)}...\nTask: Deliver measurable improvement against baseline.\nAction: [Describe your specific technical or leadership actions]\nResult: ${metrics[0].match(/\d[^.!?]*/)?.[0] || 'Quantified outcome'}`);
+    starCards.push(`STAR — Scaling or Team Growth\nSituation: ${metrics[1].substring(0, 120)}...\nTask: [Define the scope and constraints]\nAction: [Detail your methodology and collaboration approach]\nResult: ${metrics[1].match(/\d[^.!?]*/)?.[0] || 'Measurable impact'}`);
+  } else {
+    starCards.push(`STAR — Technical Challenge\nSituation: A complex technical requirement emerged mid-project.\nTask: Deliver solution without compromising timeline.\nAction: [Use a specific example from your experience with ${scores.matched_skills.slice(0,2).join(' or ')}]\nResult: [Quantify: time saved, performance gain, cost reduction, etc.]`);
+    starCards.push(`STAR — Collaboration\nSituation: Cross-functional misalignment threatened delivery.\nTask: Realign stakeholders and recover timeline.\nAction: [Describe your communication and negotiation approach]\nResult: [Outcome with measurable impact]`);
+  }
+
+  // Card 4: Technical Deep-Dive
+  const deepDiveSkills = scores.matched_skills.slice(0, 3);
+  const deepDiveQuestions = deepDiveSkills.map(skill => {
+    const templates = [
+      `Explain ${skill} architecture patterns you have used. When would you choose one over another?`,
+      `What are the trade-offs of using ${skill} at scale? How do you mitigate risks?`,
+      `Walk me through debugging a production issue in ${skill}. What tools and processes do you use?`,
+      `How do you stay current with ${skill} ecosystem changes? What\'s something new you have adopted recently?`,
+      `Compare ${skill} with an alternative you have used. When would you migrate?`
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  });
+
+  // Card 5: Questions to Ask Them
+  const askQuestions = [
+    `How does the ${roleTitle} team currently measure success for this quarter?`,
+    `What is the biggest technical or product challenge this team is facing right now?`,
+    `Can you describe the onboarding process and how quickly new hires typically contribute to production?`,
+    culture.isStartup 
+      ? `What does the runway look like, and how does this role evolve as the company scales?`
+      : `How does this role fit into the broader organisational strategy for the next 12-18 months?`,
+    `What does excellence look like in this role after 90 days?`,
+    culture.isProductLed
+      ? `How do engineers participate in product discovery and user research?`
+      : `How are technical decisions made and documented across teams?`,
+    `What is the team\'s approach to technical debt and refactoring?`,
+    `How does ${companyName} support continued learning and conference attendance?`
+  ];
+
+  return `CARD 1 — ROLE-SPECIFIC TECHNICAL
+${techQuestions.map((q,i) => `${i+1}. ${q}`).join('\n')}
+
+CARD 2 — COMPANY & CULTURE SIGNAL
+${cultureQuestions.slice(0,5).map((q,i) => `${i+1}. ${q}`).join('\n')}
+
+CARD 3 — BEHAVIOURAL STAR FRAMEWORKS
+${starCards.join('\n\n')}
+
+CARD 4 — TECHNICAL DEEP-DIVE
+${deepDiveQuestions.map((q,i) => `${i+1}. ${q}`).join('\n')}
+${scores.missing_skills.length > 0 ? `\n5. You listed ${scores.missing_skills[0]} as a requirement I am less familiar with. Here is how I would approach closing that gap...` : ''}
+
+CARD 5 — QUESTIONS TO ASK THEM
+${askQuestions.map((q,i) => `${i+1}. ${q}`).join('\n')}`;
+}
+
+// ===================== HELPERS =====================
+
+function extractYearsExperience(text) {
+  const patterns = [
+    /(\d+)\+?\s*years?\s*(?:of\s*)?experience/i,
+    /(\d+)\+?\s*years?\s*(?:in|of)/i,
+    /experience[:\s]+(\d+)\+?\s*years?/i
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return match[1] + '+';
+  }
+  // Estimate from dates
+  const years = text.match(/20\d{2}/g) || [];
+  if (years.length >= 2) {
+    const min = Math.min(...years.map(Number));
+    const max = Math.max(...years.map(Number));
+    return String(Math.max(max - min, 1));
+  }
+  return 'several';
+}
+
+function generateKeywordAnalysis(parsedJD, parsedCV, scores) {
+  const html = [];
+
+  html.push('<h4 style="margin-bottom: 12px; color: var(--text);">Skills Match</h4>');
+  html.push('<div style="margin-bottom: 16px;">');
+  html.push('<strong style="color: var(--success);">Matched (' + scores.matched_skills.length + '):</strong> ');
+  scores.matched_skills.forEach(s => html.push(`<span class="keyword-tag keyword-matched">${s}</span>`));
+  html.push('</div>');
+
+  if (scores.missing_skills.length > 0) {
+    html.push('<div style="margin-bottom: 16px;">');
+    html.push('<strong style="color: var(--danger);">Missing (' + scores.missing_skills.length + '):</strong> ');
+    scores.missing_skills.forEach(s => html.push(`<span class="keyword-tag keyword-missing">${s}</span>`));
+    html.push('</div>');
+  }
+
+  html.push('<h4 style="margin: 20px 0 12px; color: var(--text);">Requirements Coverage</h4>');
+  html.push('<ul style="list-style: none; padding: 0;">');
+  parsedJD.requirements.forEach((req, i) => {
+    const reqSkills = extractSkills(req).all;
+    const matchedReq = reqSkills.filter(s => parsedCV.skills.all.includes(s));
+    const status = matchedReq.length > 0 ? 'keyword-matched' : (reqSkills.length === 0 ? 'keyword-partial' : 'keyword-missing');
+    const label = matchedReq.length > 0 ? '✓ MATCHED' : (reqSkills.length === 0 ? '○ REVIEW' : '✗ GAP');
+    html.push(`<li style="margin-bottom: 8px; padding: 8px; background: var(--surface); border-radius: 6px;"><span class="keyword-tag ${status}">${label}</span> ${req.substring(0, 120)}${req.length > 120 ? '...' : ''}</li>`);
+  });
+  html.push('</ul>');
+
+  html.push('<h4 style="margin: 20px 0 12px; color: var(--text);">Culture & Tone Detection</h4>');
+  const culture = detectCulture(parsedJD.raw);
+  html.push(`<p><strong>Primary culture:</strong> ${culture.primary.replace('_', ' ')}</p>`);
+  html.push(`<p><strong>Startup signals:</strong> ${culture.scores.startup}% | <strong>Corporate signals:</strong> ${culture.scores.corporate}% | <strong>Product-led:</strong> ${culture.scores.product_led}%</p>`);
+  html.push(`<p><strong>Detected seniority:</strong> ${scores.jd_seniority} (CV appears: ${scores.cv_seniority})</p>`);
+
+  return html.join('');
+}
+
+function generateSummaryText(scores, parsedJD, parsedCV) {
+  const parts = [];
+  const overall = Math.round((scores.skill_match + scores.experience_relevance + scores.tech_stack_match + scores.seniority_alignment) / 4);
+
+  if (overall >= 80) parts.push(`Strong alignment detected. Your background in ${scores.matched_skills.slice(0,3).join(', ')} maps closely to the role requirements.`);
+  else if (overall >= 60) parts.push(`Solid foundation with room to strengthen. You match on ${scores.matched_skills.slice(0,3).join(', ')} but gaps exist in ${scores.missing_skills.slice(0,2).join(' and ')}.`);
+  else parts.push(`Significant gaps detected. Focus on building expertise in ${scores.missing_skills.slice(0,3).join(', ')} and reframing transferable experience.`);
+
+  if (scores.impact_metrics_strength < 60) parts.push(`Add quantified achievements to improve competitiveness.`);
+  if (scores.ats_formatting_health < 70) parts.push(`ATS formatting issues detected — review the warnings below.`);
+  if (scores.verb_strength_clarity < 60) parts.push(`Strengthen action verbs in experience bullets.`);
+
+  return parts.join(' ');
+}
+
+// ===================== UI CONTROLLERS =====================
+
+// CV and JD inputs are now text-only for simplicity and reliability.
+
+function switchTab(n) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===n));
+  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', i===n));
+}
+
+let lastAnalysisResult = null;
+
+async function runAnalysis() {
+  const jobDesc = document.getElementById('jobDesc').value.trim();
+  const cvText = document.getElementById('cvText').value.trim();
+  
+  if (!jobDesc || !cvText) {
+    alert('Please provide both a job description and your CV text.');
+    return;
+  }
+
+  const loader = document.getElementById('loader');
+  const results = document.getElementById('results');
+  loader.classList.add('active');
+  results.classList.remove('active');
+
+  // Reset steps
+  document.querySelectorAll('.loader-step').forEach(s => s.classList.remove('done'));
+
+  // Step 1: Parse JD
+  await new Promise(r => setTimeout(r, 600));
+  document.getElementById('ls1').classList.add('done');
+
+  const parsedJD = {
+    raw: jobDesc,
+    skills: extractSkills(jobDesc),
+    ...extractRequirements(jobDesc),
+    ...extractCompanyAndRole(jobDesc),
+  };
+
+  // Step 2: Parse CV
+  await new Promise(r => setTimeout(r, 600));
+  document.getElementById('ls2').classList.add('done');
+
+  const parsedCV = {
+    ...parseCV(cvText),
+    skills: extractSkills(cvText),
+    raw: cvText
+  };
+
+  // Step 3: Score
+  await new Promise(r => setTimeout(r, 600));
+  document.getElementById('ls3').classList.add('done');
+
+  const scores = calculateDimensions(parsedJD, parsedCV);
+  const overall = Math.round((scores.skill_match + scores.experience_relevance + scores.tech_stack_match + scores.seniority_alignment) / 4);
+
+  // Step 4: Generate CV
+  await new Promise(r => setTimeout(r, 600));
+  document.getElementById('ls4').classList.add('done');
+
+  const atsCV = generateATSCV(parsedJD, parsedCV, scores);
+  const coverLetter = generateCoverLetter(parsedJD, parsedCV, scores);
+  const interviewPrep = generateInterviewPrep(parsedJD, parsedCV, scores);
+
+  // Step 5: Finalize
+  await new Promise(r => setTimeout(r, 600));
+  document.getElementById('ls5').classList.add('done');
+  await new Promise(r => setTimeout(r, 400));
+
+  // Store for export
+  lastAnalysisResult = { parsedJD, parsedCV, scores, atsCV, coverLetter, interviewPrep, overall };
+
+  // Render results
+  document.getElementById('scoreVal').textContent = overall;
+  document.getElementById('scoreRing').style.background = `conic-gradient(var(--accent) 0% ${overall}%, var(--surface-2) ${overall}% 100%)`;
+  document.getElementById('scoreSummary').textContent = generateSummaryText(scores, parsedJD, parsedCV);
+
+  // Keyword summary chips
+  const kwHtml = [];
+  kwHtml.push(`<span class="keyword-tag keyword-matched">${scores.matched_skills.length} skills matched</span>`);
+  if (scores.missing_skills.length) kwHtml.push(`<span class="keyword-tag keyword-missing">${scores.missing_skills.length} skills missing</span>`);
+  kwHtml.push(`<span class="keyword-tag keyword-partial">${parsedJD.requirements.length} requirements parsed</span>`);
+  document.getElementById('keywordSummary').innerHTML = kwHtml.join('');
+
+  // Dimension grid
+  const dims = [
+    { key: 'skill_match', name: 'Skill Match' },
+    { key: 'experience_relevance', name: 'Experience Relevance' },
+    { key: 'seniority_alignment', name: 'Seniority Alignment' },
+    { key: 'tech_stack_match', name: 'Tech Stack Match' },
+    { key: 'keyword_coverage', name: 'Keyword Coverage' },
+    { key: 'impact_metrics_strength', name: 'Impact & Metrics' },
+    { key: 'ats_formatting_health', name: 'ATS Formatting' },
+    { key: 'verb_strength_clarity', name: 'Verb Strength' },
+    { key: 'industry_alignment', name: 'Industry Alignment' },
+    { key: 'overall_competitiveness', name: 'Competitiveness' }
+  ];
+
+  document.getElementById('dimensionGrid').innerHTML = dims.map(d => `
+    <div class="dim-card">
+      <div style="flex: 1;">
+        <div class="dim-name">${d.name}</div>
+        <div class="dim-bar"><div class="dim-bar-fill" style="width:${scores[d.key]}%"></div></div>
+      </div>
+      <div class="dim-score">${scores[d.key]}</div>
+    </div>
+  `).join('');
+
+  // ATS warnings
+  const warningsDiv = document.getElementById('atsWarnings');
+  if (parsedCV.atsIssues.length > 0) {
+    warningsDiv.innerHTML = `<div class="ats-warning">⚠️ <strong>ATS Issues Detected:</strong> ${parsedCV.atsIssues.map(i => i.name).join('; ')}. The rewrite below removes these blockers.</div>`;
+  } else {
+    warningsDiv.innerHTML = `<div class="ats-ok">✓ No major ATS formatting issues detected in your CV.</div>`;
+  }
+
+  // Content panels
+  document.getElementById('cvContent').textContent = atsCV;
+  document.getElementById('coverContent').textContent = coverLetter;
+  document.getElementById('interviewContent').textContent = interviewPrep;
+  document.getElementById('keywordAnalysis').innerHTML = generateKeywordAnalysis(parsedJD, parsedCV, scores);
+  document.getElementById('jsonContent').textContent = JSON.stringify({
+    overall_score: overall,
+    dimensions: Object.fromEntries(dims.map(d => [d.key, scores[d.key]])),
+    summary: generateSummaryText(scores, parsedJD, parsedCV),
+    job_spec: {
+      role_title: parsedJD.roleTitle,
+      company_name: parsedJD.companyName,
+      seniority_level: scores.jd_seniority,
+      culture_profile: detectCulture(parsedJD.raw).primary,
+      must_have_skills: scores.missing_skills.slice(0, 5),
+      matched_skills: scores.matched_skills.slice(0, 10)
+    },
+    parsed_requirements: parsedJD.requirements,
+    parsed_responsibilities: parsedJD.responsibilities
+  }, null, 2);
+
+  loader.classList.remove('active');
+  results.classList.add('active');
+  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function loadDemo() {
+  const demoJD = `Senior iOS Engineer — Send Experience
+
+Wise moves billions every month. The Send Experience team makes sending money feel as easy as sending a message. We are looking for a Senior iOS Engineer to help us build the future of international transfers.
+
+The Role
+You will join the Send Experience team in London, working on the iOS app that millions of people use to send money across borders. You will own features end-to-end, from SwiftUI UI to backend integration, collaborating with product, design, and data science.
+
+Responsibilities
+• Design and build customer-facing iOS features using Swift, SwiftUI, and UIKit
+• Architect clean, testable code following MVVM-C and VIPER patterns
+• Collaborate with cross-functional teams in an agile, product-led environment
+• Lead technical design discussions and mentor junior engineers
+• Ensure high UI craft and performance for millions of weekly active users
+• Work with RESTful APIs, offline caching, and real-time data sync
+• Drive CI/CD improvements and maintain automated testing pipelines
+• Contribute to internationalisation and local payment method integrations
+
+Requirements
+• 5+ years of iOS development experience with strong Swift and SwiftUI skills
+• Deep understanding of iOS architecture patterns: MVVM, MVVM-C, VIPER
+• Experience with Combine, Async/Await, and Structured Concurrency
+• Track record of shipping high-quality apps to the App Store
+• Strong product sense and attention to UI/UX detail
+• Experience with fintech, banking, or regulated environments preferred
+• Familiarity with Core Data, offline caching, and secure API integration
+• Excellent communication and stakeholder management skills
+• Experience leading teams and conducting code reviews
+• Knowledge of GitHub Actions, CI/CD, and automated testing with XCTest
+
+About Wise
+Wise is a global technology company building the best way to move money around the world. We are not a bank — we are better. We are product-led, customer-obsessed, and believe in strong opinions, held loosely.`;
+  const demoCV = `MAHESH LAD
+Senior iOS Engineer
+Harrow, Middlesex, UK | +44 7493 126371 | mlad.mahesh.lad@gmail.com
+LinkedIn: linkedin.com/in/mahesh-lad | GitHub: github.com/mahesh46 | Portfolio: mahesh46.github.io/Resume
+
+PROFESSIONAL SUMMARY
+Senior iOS Engineer with 10+ years architecting and shipping customer-focused mobile applications in fintech, healthcare, and telecom. Deep expertise in Swift, SwiftUI, UIKit, and MVVM-C architecture. Proven track record building secure banking and trading platforms with internationalisation support, leading cross-functional teams of 8+ engineers, and delivering products to millions of users. Passionate about UI craft, clean code, and end-to-end feature ownership. Recently upskilled in Generative AI, Kotlin Multiplatform, and modern concurrency.
+
+CORE SKILLS
+• Languages & Frameworks: Swift, SwiftUI, UIKit, Objective-C, Combine, Kotlin, Jetpack Compose
+• Architecture & Design: MVVM, MVVM-C, VIPER (familiar), SOLID, TDD, Clean Code, Dependency Injection (Swinject, Resolver)
+• iOS Craft: Auto Layout, Core Data, GCD, NSOperationQueue, Async/Await, Structured Concurrency, XCTest, Automated Testing, Profiling
+• APIs & Backend: RESTful APIs, SOAP, JSON, XML, Cloud Messaging, Offline Caching, Swift Package Manager
+• DevOps & Tools: Xcode, Git, GitHub Actions, GitLab CI, CI/CD, JIRA, Agile/Scrum
+• Cloud & Data: AWS (RDS, EB), Supabase, PostgreSQL, MySQL, Realm, Core Data
+• Specialisations: Fintech, Mobile Banking, Internationalisation (i18n), White-Label Apps, Bluetooth/Wearables, ARKit
+
+PROFESSIONAL EXPERIENCE
+
+Independent iOS Development & Upskilling | June 2025 – Present
+• Architecting personal projects in food-tech and delivery domains using SwiftUI and Jetpack Compose.
+• Completing advanced training in Generative AI, Large Language Models, and Responsible AI (Google Cloud, Microsoft Azure).
+• Available immediately for full-time senior iOS engineering roles.
+
+Senior Application Developer | AtYourTime.com (Startup) | Jan 2025 – May 2025
+• Led design and development of cross-platform restaurant and delivery apps serving global markets using React Native.
+• Collaborated with cross-functional teams to define product requirements and ensure quality across iOS and Android codebases.
+
+Freelance iOS & Android Developer | Independent | Dec 2023 – Jan 2025
+• Shipped three independent apps: taxi ride app, e-commerce platform with Apple Pay integration, and restaurant menu app.
+• Built using SwiftUI and Jetpack Compose, demonstrating end-to-end ownership from concept to App Store submission.
+• Earned recognition in online hackathons for innovative mobile solutions and clean architecture.
+
+Senior iOS Developer | Deloitte | Sept 2019 – Apr 2023
+• Led iOS development for enterprise clients including a major German financial institution, delivering secure banking and trading applications.
+• Architected the Smart Broker App (Zebra), a financial platform supporting stocks and cryptocurrency trading with multilingual localisation (German/English) and secure API integration.
+• Built Protecht Gumshield, an MVP iOS Bluetooth wearable app for sports analytics, implementing CI/CD pipelines and end-to-end technical design as the sole iOS engineer.
+• Delivered the Virgin Media Converged App (mobile and broadband management), scaling the iOS team from 3 to 8+ developers across iOS and Android; achieved 99.9% bug-free releases over 2.5 years.
+• Integrated RESTful APIs and SOAP services, implemented Core Data caching, and employed GCD, NSOperationQueue, and Async/Await for responsive interfaces.
+• Conducted code reviews, automated testing with XCTest, and enforced SOLID principles and Gang of Four design patterns.
+• Added SwiftUI features to an existing internal banking project, modernising the UI layer.
+
+Senior iOS Developer | Emotive (Healthcare Communications) | May 2016 – Mar 2018
+• Developed tablet and mobile iOS applications for Fortune 500 pharmaceutical clients including GSK, Bayer, and Shire.
+• Built medical case study, training, and conference apps using Swift, Core Data, and Combine.
+• Produced technical design documentation and implemented clean architecture principles to ensure maintainable, testable code.
+• Delivered apps for ADHD case studies, atrial fibrillation impact models, and sales rep tools in agile sprints.
+
+iOS Developer | Golden Trident Ltd | Jan 2015 – Apr 2016
+• Developed native iOS applications for a next-generation social networking startup.
+• Implemented MVVM architecture and white-labelling solutions with internationalisation support.
+• Collaborated with backend teams to integrate web services and MongoDB.
+
+iOS Developer & CTO | ShrPlane (Google TechHub, Old Street) | Dec 2014 – Feb 2015
+• Served as CTO and full-stack iOS developer for a social media journey-sharing startup.
+• Architected MVP including database design, IIS authentication, and Web API using Swift, PHP, MySQL, and JavaScript.
+• Prepared product for Seedcamp pitch (January 2015).
+
+Mobile App Developer | DPR Consulting | Apr 2014 – Oct 2014
+• Developed white-label mobile banking applications for iPhone and Android.
+• Shipped the Premium Bank Mobile Banking App enabling balance checks, payments, transfers, branch finding, and push notifications.
+• Integrated XML/JSON structures and SOAP-based services; implemented unit testing and continuous integration.
+• Generated £1M in revenue from the white-label banking platform.
+
+Senior Analyst Programmer | Simply Health | May 2012 – Jan 2014
+• Developed healthcare systems across Windows, cloud, and mobile platforms.
+• Built iOS applications using Objective-C, Xcode, and PhoneGap alongside .NET Framework 4.5 and SQL Server.
+
+PROJECTS
+• Complete E-Commerce App — SwiftUI 3, iOS 15, Apple Pay integration
+• OS Companion App — Wear OS haptic controller and WatchOS app for Parkinson's research
+• ARKit Portfolio — 11 augmented reality applications (Udemy certification project)
+
+EDUCATION
+BSc Mathematics | Coventry University | 1990
+
+CERTIFICATIONS
+• Kotlin Multiplatform Masterclass (Udemy, Dec 2024)
+• ARKit Masterclass — Build 11 Augmented Reality Apps (Udemy)
+• Ultimate Agile Scrum Master 2022+ Certification Training
+• Microsoft Azure Data Fundamentals (Apr 2023)
+• Microsoft Azure AI Fundamentals
+• Google Cloud — Introduction to Generative AI, Large Language Models, Responsible AI`;
+  document.getElementById('jobDesc').value = demoJD;
+  document.getElementById('cvText').value = demoCV;
+  document.getElementById('engine').scrollIntoView({ behavior: 'smooth' });
+  setTimeout(runAnalysis, 400);
+}
+
+// ===================== EXPORT ENGINE =====================
+
+function downloadDoc(type) {
+  if (!lastAnalysisResult) return;
+  const { parsedJD, parsedCV, atsCV, coverLetter, interviewPrep, overall } = lastAnalysisResult;
+  const name = parsedCV.name || 'Candidate';
+  const company = parsedJD.companyName || 'Company';
+
+  const docs = {
+    cv: {
+      filename: `${name.replace(/\s+/g,'_')}_ATS_CV_${company.replace(/\s+/g,'_')}.doc`,
+      html: buildCVDoc(atsCV, name, parsedJD.roleTitle, overall)
+    },
+    cover: {
+      filename: `${name.replace(/\s+/g,'_')}_Cover_Letter_${company.replace(/\s+/g,'_')}.doc`,
+      html: buildCoverDoc(coverLetter, name, company, parsedJD.roleTitle)
+    },
+    interview: {
+      filename: `${name.replace(/\s+/g,'_')}_Interview_Prep_${company.replace(/\s+/g,'_')}.doc`,
+      html: buildInterviewDoc(interviewPrep, name, company, parsedJD.roleTitle)
+    }
+  };
+
+  const doc = docs[type];
+  const blob = new Blob(['\ufeff', doc.html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = doc.filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function buildCVDoc(content, name, title, score) {
+  const escaped = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>CV</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.4; color: #1a1a2e; max-width: 700px; margin: 40px auto; }
+h1 { font-size: 22pt; color: #1a1a2e; margin-bottom: 4px; letter-spacing: -0.5px; }
+h2 { font-size: 12pt; color: #7c3aed; margin-top: 18pt; margin-bottom: 6pt; text-transform: uppercase; letter-spacing: 0.5pt; border-bottom: 1.5pt solid #7c3aed; padding-bottom: 2pt; }
+.contact { font-size: 10pt; color: #555; margin-bottom: 2pt; }
+.footer { margin-top: 30pt; padding-top: 10pt; border-top: 0.5pt solid #ddd; font-size: 8pt; color: #999; text-align: center; }
+</style></head>
+<body>
+<h1>${name.toUpperCase()}</h1>
+${title ? `<div style="font-size: 13pt; color: #555; margin-bottom: 8pt;">${title}</div>` : ''}
+<div class="footer">JobFit Score: ${score}/100 | Generated by JobFit Engine v2.0</div>
+</body></html>`;
+}
+
+function buildCoverDoc(content, name, company, title) {
+  const escaped = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Cover Letter</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a2e; max-width: 600px; margin: 40px auto; }
+.header { text-align: right; margin-bottom: 40px; font-size: 10pt; color: #555; }
+h2 { font-size: 13pt; color: #1a1a2e; margin-bottom: 4pt; }
+.footer { margin-top: 40pt; padding-top: 10pt; border-top: 0.5pt solid #ddd; font-size: 8pt; color: #999; text-align: center; }
+</style></head>
+<body>
+<div class="header">
+<div>${name}</div>
+<div>${title || 'Applicant'}</div>
+</div>
+<h2>Application for ${title || 'Role'} — ${company}</h2>
+<p>${escaped}</p>
+<div class="footer">Generated by JobFit Engine v2.0 — Dynamic Cover Letter</div>
+</body></html>`;
+}
+
+function buildInterviewDoc(content, name, company, title) {
+  const escaped = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Interview Prep</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.4; color: #1a1a2e; max-width: 700px; margin: 40px auto; }
+h1 { font-size: 18pt; text-align: center; margin-bottom: 4pt; color: #1a1a2e; }
+h2 { font-size: 12pt; color: #7c3aed; margin-top: 18pt; margin-bottom: 8pt; border-bottom: 1pt solid #e5e5e5; padding-bottom: 4pt; }
+.footer { margin-top: 30pt; padding-top: 10pt; border-top: 0.5pt solid #ddd; font-size: 8pt; color: #999; text-align: center; }
+</style></head>
+<body>
+<h1>Interview Prep Cards</h1>
+<div style="text-align: center; color: #777; font-size: 10pt; margin-bottom: 24pt;">${company} — ${title || 'Role'}</div>
+<p>${escaped}</p>
+<div class="footer">Generated by JobFit Engine v2.0 — Role-Specific Interview Preparation</div>
+</body></html>`;
+}
+</script>
+</body>
+</html>
